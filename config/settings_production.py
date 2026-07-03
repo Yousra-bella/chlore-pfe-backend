@@ -56,11 +56,12 @@ TEMPLATES = [{
 WSGI_APPLICATION = 'config.wsgi.application'
  
 # ── BASE DE DONNÉES POSTGRESQL ─────────────────────────
+
+
 DATABASES = {
-    "default": dj_database_url.parse(
-        os.environ["DATABASE_URL"],
+    "default": dj_database_url.config(
+        default="postgresql://postgres:motdepasse@localhost:5432/chlore_db",
         conn_max_age=600,
-        ssl_require=False,
     )
 }
  
