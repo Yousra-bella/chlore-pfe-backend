@@ -56,13 +56,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
  
 # ── BASE DE DONNÉES POSTGRESQL ─────────────────────────
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'chlore_db',
-        'USER': 'postgres',
-        'PASSWORD': 'motdepasse',  
-        'HOST': 'localhost',
-        'PORT': '5432',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("PGDATABASE"),
+        "USER": os.getenv("PGUSER"),
+        "PASSWORD": os.getenv("PGPASSWORD"),
+        "HOST": os.getenv("PGHOST"),
+        "PORT": os.getenv("PGPORT"),
     }
 }
  
