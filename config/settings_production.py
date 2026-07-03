@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+import dj_database_url
  
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-chlore-pfe-cle-secrete-2025'
@@ -56,14 +57,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
  
 # ── BASE DE DONNÉES POSTGRESQL ─────────────────────────
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("PGDATABASE", "chlore_db"),
-        "USER": os.getenv("PGUSER", "postgres"),
-        "PASSWORD": os.getenv("PGPASSWORD", "motdepasse"),
-        "HOST": os.getenv("PGHOST", "localhost"),
-        "PORT": os.getenv("PGPORT", "5432"),
-    }
+    "default": dj_database_url.parse(
+        os.environ["DATABASE_URL"],
+        conn_max_age=600,
+        ssl_require=False,
+    )
 }
  
 # Utiliser notre modèle User personnalisé
