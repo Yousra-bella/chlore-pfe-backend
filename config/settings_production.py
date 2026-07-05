@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
+    'anymail',
     # Notre application
     'chlore_api',
     'recipients', 
@@ -102,13 +103,13 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 # ── Email Gmail SMTP ──────────────────────────────────────────
-EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST          = 'smtp.gmail.com'
-EMAIL_PORT          = 587
-EMAIL_USE_TLS       = True
-EMAIL_HOST_USER     = 'bellayoussra42@gmail.com'        # ← ton Gmail
-EMAIL_HOST_PASSWORD = 'nbqm qoqa uari zolj'        # ← le code 16 caractères
-DEFAULT_FROM_EMAIL  = f'ONEE Chlore <{EMAIL_HOST_USER}>'
+EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
+
+ANYMAIL = {
+    'BREVO_API_KEY': os.environ.get('BREVO_API_KEY', ''),
+}
+
+DEFAULT_FROM_EMAIL = 'ONEE Chlore <bellayoussra42@gmail.com>'
 
 # ── URL du backend pour les liens de reset ────────────────────
 FRONTEND_URL = 'http://192.168.11.108:8000'
