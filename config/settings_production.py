@@ -5,7 +5,7 @@ import dj_database_url
  
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-chlore-pfe-cle-secrete-2025'
-DEBUG = True
+DEBUG = False
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
     'https://chlore-pfe-backend-production.up.railway.app',
