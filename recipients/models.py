@@ -13,13 +13,15 @@ class Recipient(models.Model):
         ('epreuve',     'En épreuve'),
     ]
     CAPACITE_CHOICES = [
-        (50,   '50 kg'),
-        (1000, '1 tonne'),
-    ]
+    (50,  '50 kg'),
+    (400, '400 kg'),
+    (900, '900 kg'),
+]
     PERIODICITE = {
-        50:   12,
-        1000: 24,
-    }
+    50:  24,
+    400: 24,
+    900: 24,
+}
 
     numero_serie          = models.CharField(max_length=100, unique=True)
     code_qr               = models.CharField(max_length=200, unique=True)
