@@ -15,6 +15,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from django.db import transaction
 
 from .models import Recipient, Mouvement, ConfigPeriodicite, Anomalie
 from .serializers import RecipientSerializer, MouvementSerializer, ConfigPeriodiciteSerializer, AnomalieSerializer
@@ -40,7 +41,7 @@ class RecipientListCreateView(generics.ListCreateAPIView):
         user = self.request.user
 
         # Récupère le rôle peu importe où il est stocké
-        role = getattr(user, 'role', None) or get_role(user)
+        role = user.role
 
         if role in ['agent', 'chef_centre']:
             centre_id = getattr(user, 'centre_id', None)
@@ -123,16 +124,20 @@ class ChangerEtatView(APIView):
             }, status=403)
 
         ancien = r.etat
-        Mouvement.objects.create(
-            recipient=r,
-            centre=r.centre,
-            agent=request.user,
-            ancien_etat=ancien,
-            nouvel_etat=n_etat,
-            observation=obs.strip(),
-        )
-        r.etat = n_etat
-        r.save()
+
+        # ✅ Sécurisation de l'intégrité via un bloc atomique (Unit of Work)
+        with transaction.atomic():
+            Mouvement.objects.create(
+                recipient=r,
+                centre=r.centre,
+                agent=request.user,
+                ancien_etat=ancien,
+                nouvel_etat=n_etat,
+                observation=obs.strip(),
+            )
+            r.etat = n_etat
+            r.save()
+
         return Response({
             'message':   f'État mis à jour → {n_etat}',
             'recipient': RecipientSerializer(r).data,
