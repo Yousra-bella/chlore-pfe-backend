@@ -55,6 +55,10 @@ class Recipient(models.Model):
 
     def __str__(self):
         return f"{self.numero_serie} — {self.etat}"
+    class Meta:
+        indexes = [
+            models.Index(fields=['centre', 'etat']),
+        ]
 
 
 class Mouvement(models.Model):
@@ -69,6 +73,9 @@ class Mouvement(models.Model):
 
     class Meta:
         ordering = ['-date_heure']
+        indexes = [
+            models.Index(fields=['recipient', 'date_heure']),
+        ]
 
     def __str__(self):
         return f"{self.recipient.numero_serie} : {self.ancien_etat} → {self.nouvel_etat}"

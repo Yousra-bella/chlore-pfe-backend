@@ -16,10 +16,10 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from django.db import transaction
-
 from .models import Recipient, Mouvement, ConfigPeriodicite, Anomalie
 from .serializers import RecipientSerializer, MouvementSerializer, ConfigPeriodiciteSerializer, AnomalieSerializer
 from chlore_api.permissions import EstAdmin, EstChefCentre, EstAgent
+from .mixins import CentreScopedMixin
 
 TRANSITIONS = {
     'plein':       ['branche', 'entretien', 'epreuve'],
@@ -36,6 +36,7 @@ class RecipientListCreateView(generics.ListCreateAPIView):
     permission_classes = [EstAgent]
 
     def get_queryset(self):
+        qs = Recipient.objects.select_related('centre')
         q = Recipient.objects.all()
         p = self.request.query_params
         user = self.request.user
@@ -162,6 +163,7 @@ class DashboardView(APIView):
     permission_classes = [EstAgent]
 
     def get(self, request):
+        recipients = Recipient.objects.select_related('centre').filter(...) 
         tous = Recipient.objects.all()
         if request.user.role in ['agent', 'chef_centre'] and request.user.centre_id:
             tous = tous.filter(centre_id=request.user.centre_id)
@@ -238,6 +240,7 @@ class ExportPDFView(APIView):
     permission_classes = [EstChefCentre]
 
     def get(self, request):
+        recipients = Recipient.objects.select_related('centre').filter(...)
         # ── Accepter le token via query param pour ouverture navigateur ──
         token_param = request.query_params.get('token')
         if token_param:
@@ -489,15 +492,14 @@ class ExportExcelView(APIView):
         return response
 
 
-class HistoriqueMouvementsView(generics.ListAPIView):
-    serializer_class   = MouvementSerializer
+class HistoriqueMouvementsView(CentreScopedMixin, generics.ListAPIView):
+    centre_field = 'recipient__centre'
+    serializer_class = MouvementSerializer
     permission_classes = [EstAgent]
 
     def get_queryset(self):
-        recipient_id = self.kwargs['pk']
-        return Mouvement.objects.filter(
-            recipient_id=recipient_id
-        ).order_by('-date_heure')
+        pk = self.kwargs['pk']
+        return super().get_queryset().filter(recipient_id=pk).order_by('-date_heure')
 
 
 class ConfigPeriodiciteView(generics.ListCreateAPIView):
@@ -524,31 +526,53 @@ class SupervisionMouvementsView(generics.ListAPIView):
         return q[:100]  # 100 derniers mouvements
 
 
-# ✅ APRÈS — corrigé
+
+
 class AnomalieCreateView(APIView):
     permission_classes = [EstChefCentre]
 
-    def post(self, request, mouvement_id):        # ✅ nom cohérent
-        try:
-            mouvement = Mouvement.objects.get(pk=mouvement_id)  # ✅ variable correcte
-        except Mouvement.DoesNotExist:
-            return Response({'erreur': 'Mouvement introuvable'}, status=404)
+    def post(self, request, mouvement_id):
+        # 1. Récupération sécurisée du mouvement (renvoie 404 automatique si introuvable)
+        mouvement = get_object_or_404(Mouvement, pk=mouvement_id)
+        
+        # 2. Cloisonnement de sécurité : Vérification que le mouvement appartient bien au centre du chef
+        if request.user.role == 'chef_centre' and mouvement.centre != request.user.centre:
+            return Response(
+                {'erreur': "Ce mouvement n'appartient pas à votre centre"}, 
+                status=403
+            )
 
+        # 3. Validation des données du formulaire
         commentaire = request.data.get('commentaire', '').strip()
         if len(commentaire) < 5:
-            return Response({'erreur': 'Commentaire trop court (min. 5 caractères)'}, status=400)
+            return Response(
+                {'erreur': 'Commentaire trop court (min. 5 caractères)'}, 
+                status=400
+            )
 
+        # 4. Création sécurisée en base de données
         anomalie = Anomalie.objects.create(
             mouvement=mouvement,
             chef_centre=request.user,
             commentaire=commentaire,
         )
+        
         return Response(AnomalieSerializer(anomalie).data, status=201)
 
+
 class AnomalieListView(generics.ListAPIView):
-    serializer_class   = AnomalieSerializer
+    serializer_class = AnomalieSerializer
     permission_classes = [EstChefCentre]
 
     def get_queryset(self):
         mouvement_id = self.kwargs['mouvement_id']
-        return Anomalie.objects.filter(mouvement_id=mouvement_id)
+        user = self.request.user
+        
+        # Filtrage par défaut sur le mouvement ciblé
+        qs = Anomalie.objects.filter(mouvement_id=mouvement_id)
+        
+        # Sécurité supplémentaire : l'agent/chef ne voit l'anomalie que si elle concerne son centre
+        if user.role in ['agent', 'chef_centre']:
+            return qs.filter(mouvement__centre=user.centre)
+            
+        return qs
