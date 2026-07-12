@@ -16,6 +16,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from .models import Recipient, Mouvement, ConfigPeriodicite, Anomalie
 from .serializers import RecipientSerializer, MouvementSerializer, ConfigPeriodiciteSerializer, AnomalieSerializer
 from chlore_api.permissions import EstAdmin, EstChefCentre, EstAgent
@@ -163,7 +164,6 @@ class DashboardView(APIView):
     permission_classes = [EstAgent]
 
     def get(self, request):
-        recipients = Recipient.objects.select_related('centre').filter(...) 
         tous = Recipient.objects.all()
         if request.user.role in ['agent', 'chef_centre'] and request.user.centre_id:
             tous = tous.filter(centre_id=request.user.centre_id)
@@ -181,13 +181,18 @@ class DashboardView(APIView):
                 .order_by('-total')
         )
 
+        mouvements_qs = Mouvement.objects.all()
+        if request.user.role in ['agent', 'chef_centre'] and request.user.centre_id:
+            mouvements_qs = mouvements_qs.filter(centre_id=request.user.centre_id)
+        derniers_mouvements = mouvements_qs.order_by('-date_heure')[:5]
+
         return Response({
             'total':             tous.count(),
             'par_etat':          par_etat,
             'epreuves_expirees': len(expirees),
             'epreuves_bientot':  len(bientot30),
             'stock_par_centre': [
-                {'centre': s['centre__nom'], 'total': s['total']}
+                {'centre': s['centre__nom'] if s['centre__nom'] else 'Non défini', 'total': s['total']}
                 for s in stock_par_centre
             ],
             'alertes': [
@@ -200,10 +205,7 @@ class DashboardView(APIView):
                 for r in tous
                 if r.epreuve_expiree or 0 <= r.jours_avant_epreuve <= 30
             ],
-            'derniers_mouvements': MouvementSerializer(
-                Mouvement.objects.order_by('-date_heure')[:5],
-                many=True
-            ).data,
+            'derniers_mouvements': MouvementSerializer(derniers_mouvements, many=True).data,
         })
 
 
@@ -240,7 +242,6 @@ class ExportPDFView(APIView):
     permission_classes = [EstChefCentre]
 
     def get(self, request):
-        recipients = Recipient.objects.select_related('centre').filter(...)
         # ── Accepter le token via query param pour ouverture navigateur ──
         token_param = request.query_params.get('token')
         if token_param:
@@ -526,23 +527,18 @@ class SupervisionMouvementsView(generics.ListAPIView):
         return q[:100]  # 100 derniers mouvements
 
 
-
-
 class AnomalieCreateView(APIView):
     permission_classes = [EstChefCentre]
 
     def post(self, request, mouvement_id):
-        # 1. Récupération sécurisée du mouvement (renvoie 404 automatique si introuvable)
         mouvement = get_object_or_404(Mouvement, pk=mouvement_id)
         
-        # 2. Cloisonnement de sécurité : Vérification que le mouvement appartient bien au centre du chef
         if request.user.role == 'chef_centre' and mouvement.centre != request.user.centre:
             return Response(
                 {'erreur': "Ce mouvement n'appartient pas à votre centre"}, 
                 status=403
             )
 
-        # 3. Validation des données du formulaire
         commentaire = request.data.get('commentaire', '').strip()
         if len(commentaire) < 5:
             return Response(
@@ -550,7 +546,6 @@ class AnomalieCreateView(APIView):
                 status=400
             )
 
-        # 4. Création sécurisée en base de données
         anomalie = Anomalie.objects.create(
             mouvement=mouvement,
             chef_centre=request.user,
@@ -568,10 +563,8 @@ class AnomalieListView(generics.ListAPIView):
         mouvement_id = self.kwargs['mouvement_id']
         user = self.request.user
         
-        # Filtrage par défaut sur le mouvement ciblé
         qs = Anomalie.objects.filter(mouvement_id=mouvement_id)
         
-        # Sécurité supplémentaire : l'agent/chef ne voit l'anomalie que si elle concerne son centre
         if user.role in ['agent', 'chef_centre']:
             return qs.filter(mouvement__centre=user.centre)
             

@@ -4,7 +4,7 @@ import os
 import dj_database_url
  
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = 'django-insecure-chlore-pfe-cle-secrete-2025'
+SECRET_KEY = os.environ['i&-djqp@(4j!i2e8+7(xt-4f6jev8t%*8&xbpoo*x4&8!@fl3c']  
 DEBUG = False
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
