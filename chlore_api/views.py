@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Centre, User
 from .serializers import CentreSerializer, UserSerializer
 from .permissions import EstAdmin, EstChefCentre
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class ProfilView(APIView):
@@ -41,3 +42,11 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset           = User.objects.all()
     serializer_class   = UserSerializer
     permission_classes = [EstAdmin]
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        try:
+            RefreshToken(request.data['refresh']).blacklist()
+        except Exception:
+            pass
+        return Response(status=205)

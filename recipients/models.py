@@ -59,6 +59,20 @@ class Recipient(models.Model):
         indexes = [
             models.Index(fields=['centre', 'etat']),
         ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(etat__in=['plein','branche','vide','remplissage','entretien','epreuve']),
+                name='etat_valide'
+            ),
+            models.CheckConstraint(
+                check=models.Q(capacite_kg__in=[50,400,900]),
+                name='capacite_valide'
+            ),
+    
+        ]
+    config_periodicite = models.ForeignKey(
+        'ConfigPeriodicite', null=True, blank=True, on_delete=models.PROTECT
+    )
 
 
 class Mouvement(models.Model):
